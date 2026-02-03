@@ -12,8 +12,7 @@ export default function LoginPage() {
   const [nextPath, setNextPath] = useState('/dashboard')
 
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -28,20 +27,20 @@ export default function LoginPage() {
     if (user) router.replace(nextPath)
   }, [user, router, nextPath])
 
-  async function submit() {
+  async function sendOtp() {
     setBusy(true)
     setError(null)
+    setStatus(null)
     try {
-      if (mode === 'signup') {
-        const { error } = await getSupabase().auth.signUp({ email, password })
-        if (error) throw error
-      } else {
-        const { error } = await getSupabase().auth.signInWithPassword({ email, password })
-        if (error) throw error
-      }
-      router.replace(nextPath)
+      const redirectTo = `${window.location.origin}${nextPath}`
+      const { error } = await getSupabase().auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo },
+      })
+      if (error) throw error
+      setStatus('OTP link sent. Check your email (Inbox/Spam) and open the link on your phone or PC.')
     } catch (e: any) {
-      setError(e?.message ?? 'Login failed')
+      setError(e?.message ?? 'Failed to send OTP')
     } finally {
       setBusy(false)
     }
@@ -49,9 +48,9 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-2xl font-semibold">{mode === 'signin' ? 'Sign in' : 'Create account'}</h1>
+      <h1 className="text-2xl font-semibold">Login</h1>
       <p className="mt-2 text-sm text-gray-700">
-        Private journal. Your data is protected by login + Supabase Row Level Security.
+        OTP (magic link) login. We’ll email you a sign-in link. Your data stays private via Supabase Row Level Security.
       </p>
 
       <div className="mt-6 grid gap-3">
@@ -65,37 +64,21 @@ export default function LoginPage() {
             type="email"
           />
         </label>
-        <label className="grid gap-1">
-          <span className="text-sm text-gray-600">Password</span>
-          <input
-            className="rounded-md border px-3 py-2"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            type="password"
-          />
-        </label>
 
+        {status ? <div className="rounded-md border border-green-200 bg-green-50 p-2 text-sm text-green-900">{status}</div> : null}
         {error ? <div className="rounded-md border border-red-200 bg-red-50 p-2 text-sm text-red-800">{error}</div> : null}
 
         <button
-          onClick={submit}
-          disabled={busy || !email || !password}
+          onClick={sendOtp}
+          disabled={busy || !email}
           className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
         >
-          {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-        </button>
-
-        <button
-          onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-          className="text-sm text-blue-700 hover:underline"
-        >
-          {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
+          {busy ? 'Sending…' : 'Send OTP link'}
         </button>
       </div>
 
       <div className="mt-6 text-xs text-gray-600">
-        Tip: Use a strong password. If you want 2FA later, we can add it via Supabase Auth.
+        Tip: If the link opens in your phone, you’ll be logged in there too.
       </div>
     </main>
   )
