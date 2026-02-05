@@ -21,3 +21,12 @@ export type Trade = {
   created_at: string
   updated_at: string
 }
+
+export type TradeScreenshot = {
+  id: string
+  trade_id: string
+  user_id: string
+  path: string
+  caption: string | null
+  created_at: string
+}

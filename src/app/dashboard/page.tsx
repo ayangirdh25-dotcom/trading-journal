@@ -99,6 +99,9 @@ export default function DashboardPage() {
                     <span>Dir: {t.direction}</span>
                     <span>Setup: {t.setup ?? '—'}</span>
                     <span>R: {(t.r_multiple ?? 0).toFixed(2)}</span>
+                    <Link className="text-blue-700 hover:underline" href={`/trades/${t.id}`}>
+                      View
+                    </Link>
                   </div>
                 </div>
               ))}

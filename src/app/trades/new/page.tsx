@@ -34,6 +34,9 @@ export default function NewTradePage() {
   const [ruleBreaks, setRuleBreaks] = useState('')
   const [notes, setNotes] = useState('')
 
+  const [screenshots, setScreenshots] = useState<FileList | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,6 +54,7 @@ export default function NewTradePage() {
     if (!user) return
     setBusy(true)
     setError(null)
+    setUploadError(null)
 
     const payload = {
       user_id: user.id,
@@ -81,11 +85,47 @@ export default function NewTradePage() {
     }
 
     try {
-      const { error } = await getSupabase().from('trades').insert(payload)
-      if (error) throw error
-      router.replace('/dashboard')
+      const supabase = getSupabase()
+      const { data: tradeRows, error: tradeErr } = await supabase
+        .from('trades')
+        .insert(payload)
+        .select('id')
+
+      if (tradeErr) throw tradeErr
+      const tradeId = tradeRows?.[0]?.id as string | undefined
+      if (!tradeId) throw new Error('Failed to get new trade id')
+
+      // Upload screenshots (unlimited)
+      if (screenshots && screenshots.length > 0) {
+        for (const file of Array.from(screenshots)) {
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+          const objectPath = `${user.id}/${tradeId}/${Date.now()}-${safeName}`
+
+          const { error: upErr } = await supabase.storage
+            .from('trade-screenshots')
+            .upload(objectPath, file, { upsert: false })
+
+          if (upErr) throw upErr
+
+          const { error: metaErr } = await supabase.from('trade_screenshots').insert({
+            trade_id: tradeId,
+            user_id: user.id,
+            path: objectPath,
+            caption: null,
+          })
+          if (metaErr) throw metaErr
+        }
+      }
+
+      router.replace(`/trades/${tradeId}`)
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to save')
+      // Separate upload errors for clarity
+      const msg = e?.message ?? 'Failed to save'
+      if (String(msg).toLowerCase().includes('storage') || String(msg).toLowerCase().includes('bucket')) {
+        setUploadError(msg)
+      } else {
+        setError(msg)
+      }
     } finally {
       setBusy(false)
     }
@@ -164,6 +204,24 @@ export default function NewTradePage() {
                 <input className="rounded-md border px-3 py-2" value={rMultiple} onChange={(e) => setRMultiple(e.target.value)} inputMode="decimal" placeholder="e.g. 1.5" />
               </label>
             </div>
+          </div>
+
+          <div className="grid gap-3 rounded-lg border bg-white p-4">
+            <div className="font-medium">Screenshots (optional)</div>
+            <div className="text-xs text-gray-600">Upload before/after charts. Stored privately (only your account can access).</div>
+            <input
+              className="rounded-md border bg-white px-3 py-2 text-sm"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setScreenshots(e.target.files)}
+            />
+            {screenshots ? (
+              <div className="text-xs text-gray-600">Selected: {screenshots.length} file(s)</div>
+            ) : null}
+            {uploadError ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{uploadError}</div>
+            ) : null}
           </div>
 
           <div className="grid gap-3 rounded-lg border bg-white p-4">

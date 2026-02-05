@@ -64,6 +64,9 @@ export default function TradesPage() {
                     <span>Setup: {t.setup ?? '—'}</span>
                     <span>Tags: {(t.tags ?? []).join(', ') || '—'}</span>
                     <span>R: {(t.r_multiple ?? 0).toFixed(2)}</span>
+                    <Link className="text-blue-700 hover:underline" href={`/trades/${t.id}`}>
+                      View
+                    </Link>
                   </div>
                 </div>
               ))}
